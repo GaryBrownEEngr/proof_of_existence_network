@@ -5,7 +5,6 @@ import datetime
 import numpy as np
 import struct
 
-import pycoin
 import hashlib
 import unittest
 
@@ -23,7 +22,7 @@ list of
 """
 
 
-
+# https://www.freecodecamp.org/news/create-cryptocurrency-using-python/
 
 class Signing:
     """
