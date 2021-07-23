@@ -80,8 +80,7 @@ def pickle_encrypt_save_a_class(class_handle, path, key):
     assert (isinstance(key, bytes))
     assert (len(key) == 32)
 
-    test_class = TestOneClass()
-    pickle_data = pickle_to_stream(test_class)
+    pickle_data = pickle_to_stream(class_handle)
     cipher_text = encrypt_data(key, pickle_data.getvalue())
     save_bytes_to_file(cipher_text, path)
 
