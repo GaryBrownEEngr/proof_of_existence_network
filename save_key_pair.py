@@ -9,12 +9,15 @@ import unittest
 
 def generate_salt():
     from Crypto.Random import get_random_bytes
-    print("New salt: ", get_random_bytes(32))  # Print the salt to be copied to your script
+    salt = get_random_bytes(32)
+    # print("New salt: ", salt)  # Print the salt to be copied to your script
+    return salt
 
 
-def derive_key_from_password(password):
+def derive_key_from_password(password, salt):
     assert(isinstance(password, str))
-    salt = b'\x9eg\x86e\xcb\xcf1\xcaG4=B\x85\xf0\x0e\x19\xa4\x17M\xfc\xf5\xbf;\'\x15_\xbfT\x8a"\xf971\x8a'
+    assert (isinstance(salt, bytes))
+    assert (len(salt) == 32)
     key = PBKDF2(password, salt, dkLen=32)  # Your key that you can encrypt with
     return key
 
@@ -47,27 +50,33 @@ def read_bytes_from_file(path):
     return data
 
 
-def encrypt_data(key, data):
-    assert(isinstance(key, bytes))
+def encrypt_data(password, data):
+    assert(isinstance(password, str))
     assert(isinstance(data, bytes))
-    assert (len(key) == 32)
+
+    salt = generate_salt()
+    key = derive_key_from_password(password, salt)
+
 
     cipher = AES.new(key, AES.MODE_CFB)  # CFB mode
     ciphered_data = cipher.encrypt(data)  # Only need to encrypt the data, no padding required for this mode
 
     binary_stream = io.BytesIO()
+    binary_stream.write(salt)
     binary_stream.write(cipher.iv)
     binary_stream.write(ciphered_data)
     return binary_stream.getvalue()
 
 
-def decrypt_data(key, data):
+def decrypt_data(password, data):
+    assert (isinstance(password, str))
     assert (isinstance(data, bytes))
-    assert (isinstance(key, bytes))
-    assert (len(key) == 32)
 
-    iv = data[:16]
-    ciphered_data = data[16:]
+    salt = data[:32]
+    iv = data[32:32+16]
+    ciphered_data = data[32+16:]
+
+    key = derive_key_from_password(password, salt)
 
     cipher = AES.new(key, AES.MODE_CFB, iv=iv)
     original_data = cipher.decrypt(ciphered_data)  # No need to un-pad
@@ -75,23 +84,21 @@ def decrypt_data(key, data):
 
 
 
-def pickle_encrypt_save_a_class(class_handle, path, key):
+def pickle_encrypt_save_a_class(class_handle, path, password):
     assert (isinstance(path, str))
-    assert (isinstance(key, bytes))
-    assert (len(key) == 32)
+    assert (isinstance(password, str))
 
     pickle_data = pickle_to_stream(class_handle)
-    cipher_text = encrypt_data(key, pickle_data.getvalue())
+    cipher_text = encrypt_data(password, pickle_data.getvalue())
     save_bytes_to_file(cipher_text, path)
 
 
-def load_decrypt_unpickle_a_class(path, key):
+def load_decrypt_unpickle_a_class(path, password):
     assert (isinstance(path, str))
-    assert (isinstance(key, bytes))
-    assert (len(key) == 32)
+    assert (isinstance(password, str))
 
     read_cipher_text = read_bytes_from_file(path)
-    read_pickle_data = decrypt_data(key, read_cipher_text)
+    read_pickle_data = decrypt_data(password, read_cipher_text)
     stream_to_unpickle = io.BytesIO()
     stream_to_unpickle.write(read_pickle_data)
     stream_to_unpickle.seek(0)
@@ -104,10 +111,9 @@ class TestEncryptDecrypt(unittest.TestCase):
     def test_1(self):
         data_in = b"abc123 your bacon is so good I will eat it all!."
         password = "password 123abc good!"
-        key = derive_key_from_password(password)
-        cipher_text = encrypt_data(key, data_in)
+        cipher_text = encrypt_data(password, data_in)
         print(cipher_text)
-        data_out = decrypt_data(key, cipher_text)
+        data_out = decrypt_data(password, cipher_text)
         self.assertEqual(data_in, data_out)
         print(data_out)
 
@@ -125,11 +131,10 @@ class TestOneClass:
 class TestPickleUnpickle(unittest.TestCase):
     def test_1(self):
         password = "password 123abc good!"
-        key = derive_key_from_password(password)
 
         test_class = TestOneClass()
-        pickle_encrypt_save_a_class(test_class, "path.bin", key)
-        re_loaded_test_class = load_decrypt_unpickle_a_class("path.bin", key)
+        pickle_encrypt_save_a_class(test_class, "path.bin", password)
+        re_loaded_test_class = load_decrypt_unpickle_a_class("path.bin", password)
 
         self.assertEqual(test_class, re_loaded_test_class)
 
