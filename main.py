@@ -1,24 +1,22 @@
 
-import math
-import time
+
+# built in modules
 import datetime
-import numpy as np
+import io
+import random
 import struct
+import os
 
 import hashlib
 import unittest
 
-import cryptography
-from cryptography.hazmat.primitives.asymmetric import ec as elliptic_curve
-from cryptography.hazmat.primitives.asymmetric import padding
-from cryptography.hazmat.primitives import hashes
-import cryptography.hazmat.primitives.asymmetric as asymmetric
-
-from cryptography.hazmat.primitives import serialization
-from cryptography.hazmat.primitives.serialization import load_pem_private_key
+# pip installed modules
 
 
-import save_key_pair
+
+
+# Project modules
+import public_private_key_lib
 
 
 
@@ -28,137 +26,6 @@ import save_key_pair
 list of 
 """
 
-
-# https://www.freecodecamp.org/news/create-cryptocurrency-using-python/
-# https://stackoverflow.com/questions/45146504/python-cryptography-module-save-load-rsa-keys-to-from-file
-
-
-
-
-def gen_key():
-    private_key = elliptic_curve.generate_private_key(elliptic_curve.SECP256K1())
-    return private_key
-
-
-def save_key(pk, filename):
-    pem = pk.private_bytes(
-        encoding=serialization.Encoding.PEM,
-        format=serialization.PrivateFormat.TraditionalOpenSSL,
-        encryption_algorithm=serialization.NoEncryption()
-    )
-    print(pem)
-    with open(filename, 'wb') as pem_out:
-        pem_out.write(pem)
-
-
-def load_key(filename):
-    password = None
-    with open(filename, 'rb') as pem_in:
-        pemlines = pem_in.read()
-    private_key = load_pem_private_key(pemlines, password)
-    return private_key
-
-
-
-
-
-
-
-
-class Signing:
-    """
-    example extracted from: https://medium.com/asecuritysite-when-bob-met-alice/ecdsa-python-and-hazmat-2eee60caab34
-    """
-    def __init__(self, password="abc_123_password_bacon"):
-        key = save_key_pair.derive_key_from_password(password)
-        try:
-            #private_vals = save_key_pair.load_decrypt_unpickle_a_class("private_key.bin", key)
-            #print(private_vals)
-            #private_vals += 1
-            #self.private_key = elliptic_curve.derive_private_key(private_vals, elliptic_curve.SECP256K1())
-
-            self.private_key = load_key("test1.bin")
-
-            print("sucessfully loaded the private key")
-        #except IOError:
-        except:
-            self.private_key = elliptic_curve.generate_private_key(elliptic_curve.SECP256K1())
-            save_key(self.private_key, "test1.bin")
-            private_vals = self.private_key.private_numbers().private_value
-            print(private_vals)
-            save_key_pair.pickle_encrypt_save_a_class(private_vals, "private_key.bin", key)
-            print("Generated a key and saved it to the file.")
-
-        save_key(self.private_key, "test3.bin")
-        private_vals = self.private_key.private_numbers()
-        no_bits = private_vals.private_value.bit_length()
-        print (f"Private key value: {private_vals.private_value}. Number of bits {no_bits}")
-
-
-
-
-        #private_vals = private_key.private_numbers()
-        #no_bits=private_vals.private_value.bit_length()
-        #print (f"Private key value: {private_vals.private_value}. Number of bits {no_bits}")
-        self.public_key = self.private_key.public_key()
-        #pub=public_key.public_numbers()
-    
-
-    def verify_signature(self, signature, data_that_was_signed):
-        try:
-            self.public_key.verify(signature, data_that_was_signed, elliptic_curve.ECDSA(hashes.SHA3_512()))
-        except cryptography.exceptions.InvalidSignature:
-            return False
-        else:
-            return True
-    
-    def sign(self, data):
-        signature = None
-        try:
-            signature = self.private_key.sign(data, elliptic_curve.ECDSA(hashes.SHA3_512()))
-            #print(len(signature), signature)
-            #a = asymmetric.utils.decode_dss_signature(signature)
-            #print(a)
-            
-            #print("Good Signature: ",binascii.b2a_hex(signature).decode())
-            self.public_key.verify(signature, data, elliptic_curve.ECDSA(hashes.SHA3_512()))
-
-        except cryptography.exceptions.InvalidSignature:
-            print("A bad signature failed")
-        else:
-            print("Good signature verified")
-
-        return signature
-    
-    
-
-class TestSigning(unittest.TestCase):
-    def test_abc(self):
-        data = b'abc'
-
-        a = Signing()
-        new_signature = a.sign(data)
-        print("new_signature", new_signature)
-
-        prev_sig = b'0E\x02 vPb\x84\xb9\xd1.\xe2]7\xd9>\x9a\xa0Qp\x1fl_&\x8d\xc3<\r\xb2\x89\xa0\x1cT\xf5\x83\xd4\x02!\x00\xe8d\xa1\x0f\x1eL\x08\x1e|\xf3\x94\xe4\xe0BN\\l\x84\x08F\x0b\xe1\xa3\x06\x0f\xb6\xff\xafTv\x8e\x01'
-
-        print(a.verify_signature(prev_sig, data))
-
-        
-        
-    
-    
-    
-    
-# bitcoin uses Secp256k1 as parameters https://en.bitcoin.it/wiki/Secp256k1
-def encrypt():
-    private_key = elliptic_curve.generate_private_key(elliptic_curve.SECP256K1())
-
-    private_vals = private_key.private_numbers()
-    no_bits=private_vals.private_value.bit_length()
-    print (f"Private key value: {private_vals.private_value}. Number of bits {no_bits}")
-    public_key = private_key.public_key()
-    pub=public_key.public_numbers()
 
 
 
@@ -279,7 +146,7 @@ def pack_block(time, prev_block_hash, hash_set):
     assert(len(prev_block_hash) == 64)
     
     assert(isinstance(hash_set, list))
-    assert(len(hash_set) == 29 )
+    assert(len(hash_set) == 29)
     for hash in hash_set:
         assert(isinstance(hash, bytes))
         assert(len(hash) == 64)
@@ -297,7 +164,204 @@ class Testpack_block(unittest.TestCase):
         #pack_block(time, prev_block_hash, [])
     
         
-    
+
+
+
+
+class Block:
+    def __init__(self):
+        self.time = None
+        self.pad = None
+        self.prev_block_hash = None
+        self.hash_set = [None]*29
+        self.signature = None
+
+    def __eq__(self, other):
+        if self.time != other.time or self.pad != other.pad or self.prev_block_hash != other.prev_block_hash  or self.signature != other.signature:
+            return False
+
+        for n in range(len(self.hash_set)):
+            if self.hash_set[n] != other.hash_set[n]:
+                return False
+
+        return True
+
+    def __repr__(self):
+        output = []
+        output.append(F"Block(\n\ttime={self.time}\n")
+        output.append(F"\tpad={repr(self.pad)}\n")
+        output.append(F"\tprev_block_hash={repr(self.prev_block_hash)}\n")
+        output.append(F"\thash_set=\n")
+        for n in range(len(self.hash_set)):
+            output.append(F"\t\thash_set[{n}]={repr(self.hash_set[n])}\n")
+        output.append(F"\tsignature={repr(self.signature)}\n")
+        output.append(F"\t)\n")
+        return "".join(output)
+
+
+    def fill_with_valid_zeros(self):
+        self.time = 1626590551
+        self.pad = bytes([0]*40)
+        self.prev_block_hash = bytes([0]*64)
+
+        for n in range(len(self.hash_set)):
+            self.hash_set[n] = bytes([0]*64)
+
+        self.signature = bytes([0]*72)
+
+
+    def fill_with_valid_random(self):
+        self.time = 1626590551 + random.randrange(0, 3600 * 24 * 365 * 50)
+
+        self.pad = random.randbytes(40)
+        self.prev_block_hash = random.randbytes(64)
+
+        for n in range(len(self.hash_set)):
+            self.hash_set[n] = random.randbytes(64)
+
+        self.signature = random.randbytes(random.randrange(70, 74))
+
+
+    def read_from_bytes(self, data):
+        assert(len(data) == 2048)
+        n = 0
+        m = n + 8
+        self.time = struct.unpack_from("<Q", data, n)[0]
+        n = m
+        m = n + 40
+        self.pad = data[n:m]
+        n = m
+        m = n + 64
+        self.prev_block_hash = data[n:m]
+        for hash_index in range(len(self.hash_set)):
+            n = m
+            m = n + 64
+            self.hash_set[hash_index] = data[n:m]
+        n = m
+        m = n + 1
+        signature_length = struct.unpack_from("<B", data, n)[0]
+        assert(64 < signature_length <= 79)
+        n = m
+        m = n + 79
+        self.signature = data[n:m]
+        self.signature = self.signature[:signature_length]
+        assert(self.verify_block())
+
+    def write_to_bytes(self):
+        assert(self.verify_block())
+        output = io.BytesIO()
+        output.write(struct.pack("<Q", self.time))
+        output.write(self.pad)
+        output.write(self.prev_block_hash)
+
+        for item in self.hash_set:
+            output.write(item)
+        output.write(struct.pack("<B", len(self.signature)))
+        output.write(self.signature)
+
+        for n in range(len(self.signature), 79):
+            output.write(struct.pack("<B", 0))
+
+        result = output.getvalue()
+        assert(len(result) == 2048)
+        return result
+
+
+    def verify_block(self):
+        try:
+            assert (isinstance(self.time, int))
+            assert (self.time > 1626590550)
+            assert (self.time < 1626590550 + 3600 * 24 * 365 * 50)
+
+            assert (isinstance(self.pad, bytes))
+            assert (len(self.pad) == 40)
+
+            assert (isinstance(self.prev_block_hash, bytes))
+            assert (len(self.prev_block_hash) == 64)
+
+            assert (isinstance(self.hash_set, list))
+            assert (len(self.hash_set) == 29)
+            for x in self.hash_set:
+                assert (isinstance(x, bytes))
+                assert (len(x) == 64)
+
+            assert (64 < len(self.signature) <= 79)
+            return True
+        except AssertionError:
+            return False
+
+
+    def sign_block(self, private_key):
+        byte_stream = self.write_to_bytes()
+        byte_stream = byte_stream[:-(79+1)]
+        assert(len(byte_stream) == 2048-(79+1))
+
+        signature = private_key.sign_data(byte_stream)
+        self.signature = signature
+
+
+    def verify_signature(self, public_key):
+        byte_stream = self.write_to_bytes()
+        byte_stream = byte_stream[:-(79 + 1)]
+        assert (len(byte_stream) == 2048 - (79 + 1))
+        return public_key.is_signature_valid(self.signature, byte_stream)
+
+
+
+class TestRandomUnpackPack(unittest.TestCase):
+    def test_1(self):
+        a = Block()
+        a.fill_with_valid_zeros()
+        #a.fill_with_valid_random()
+        b = a.write_to_bytes()
+        c = Block()
+        c.read_from_bytes(b)
+        #sig = list(a.signature)
+        #sig[0] = 0xFF
+        #a.signature = bytes(sig)
+        self.assertEqual(a, c)
+
+
+        #prev_block_hash = Hash(b"abc").as_bytes
+
+
+
+
+
+        password = "abc_123_password_bacon"
+        private_file = "private_key_test.bin"
+        public_file = "public_key_test.txt"
+
+        if os.path.exists(private_file):
+            os.remove(private_file)
+        if os.path.exists(public_file):
+            os.remove(public_file)
+
+        private_key = public_private_key_lib.PrivateKey(password=password, private_key_file_path=private_file,
+                                 public_key_file_path=public_file)
+        self.assertFalse(private_key.was_key_loaded_from_file())
+        public_key = public_private_key_lib.PublicKey(public_key_file_path=public_file)
+
+        a.sign_block(private_key)
+        self.assertTrue(a.verify_signature(public_key))
+
+        print(a)
+
+        # pack_block(time, prev_block_hash, [])
+
+
+class BlockChain:
+    def __init__(self):
+        pass
+
+
+
+
+
+
+
+
+
     
 
 
@@ -325,8 +389,6 @@ def main():
     
 
 if __name__ == '__main__':
-    #print(get_seconds_from_unix_epoch())
-    print(math.log(1626590714,2))
     unittest.main()
 
 

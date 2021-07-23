@@ -1,10 +1,65 @@
 # https://nitratine.net/blog/post/python-encryption-and-decryption-with-pycryptodome/
 
-from Crypto.Cipher import AES
-from Crypto.Protocol.KDF import PBKDF2
+# built in modules
 import io
 import pickle
 import unittest
+
+# pip installed modules
+from Crypto.Cipher import AES
+from Crypto.Protocol.KDF import PBKDF2
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.serialization import load_pem_private_key, load_pem_public_key
+
+
+# Project modules
+
+
+
+
+def save_private_key(pk, filename, password):
+    pem = pk.private_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PrivateFormat.TraditionalOpenSSL,
+        encryption_algorithm=serialization.NoEncryption()
+    )
+    cipher_text = encrypt_data(password, pem)
+    with open(filename, 'wb') as pem_out:
+        pem_out.write(cipher_text)
+
+
+def save_public_key(pk, filename):
+    pem = pk.public_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PublicFormat.SubjectPublicKeyInfo
+    )
+    with open(filename, 'wb') as pem_out:
+        pem_out.write(pem)
+
+
+def load_private_key(filename, password):
+    with open(filename, 'rb') as pem_in:
+        cipher_text = pem_in.read()
+
+    pemlines = decrypt_data(password, cipher_text)
+    private_key = load_pem_private_key(pemlines, password=None)
+    return private_key
+
+
+def load_public_key(filename):
+    with open(filename, 'rb') as pem_in:
+        pemlines = pem_in.read()
+
+    public_key = load_pem_public_key(pemlines)
+    return public_key
+
+
+
+
+
+
+
+
 
 
 def generate_salt():
