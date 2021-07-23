@@ -14,6 +14,13 @@ from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives import hashes
 import cryptography.hazmat.primitives.asymmetric as asymmetric
 
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.serialization import load_pem_private_key
+
+
+import save_key_pair
+
+
 
 """
  8 bytes: UTC time to nearest second
@@ -23,13 +30,72 @@ list of
 
 
 # https://www.freecodecamp.org/news/create-cryptocurrency-using-python/
+# https://stackoverflow.com/questions/45146504/python-cryptography-module-save-load-rsa-keys-to-from-file
+
+
+
+
+def gen_key():
+    private_key = elliptic_curve.generate_private_key(elliptic_curve.SECP256K1())
+    return private_key
+
+
+def save_key(pk, filename):
+    pem = pk.private_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PrivateFormat.TraditionalOpenSSL,
+        encryption_algorithm=serialization.NoEncryption()
+    )
+    print(pem)
+    with open(filename, 'wb') as pem_out:
+        pem_out.write(pem)
+
+
+def load_key(filename):
+    password = None
+    with open(filename, 'rb') as pem_in:
+        pemlines = pem_in.read()
+    private_key = load_pem_private_key(pemlines, password)
+    return private_key
+
+
+
+
+
+
+
 
 class Signing:
     """
     example extracted from: https://medium.com/asecuritysite-when-bob-met-alice/ecdsa-python-and-hazmat-2eee60caab34
     """
-    def __init__(self, password=1):
-        self.private_key = elliptic_curve.generate_private_key(elliptic_curve.SECP256K1())
+    def __init__(self, password="abc_123_password_bacon"):
+        key = save_key_pair.derive_key_from_password(password)
+        try:
+            #private_vals = save_key_pair.load_decrypt_unpickle_a_class("private_key.bin", key)
+            #print(private_vals)
+            #private_vals += 1
+            #self.private_key = elliptic_curve.derive_private_key(private_vals, elliptic_curve.SECP256K1())
+
+            self.private_key = load_key("test1.bin")
+
+            print("sucessfully loaded the private key")
+        #except IOError:
+        except:
+            self.private_key = elliptic_curve.generate_private_key(elliptic_curve.SECP256K1())
+            save_key(self.private_key, "test1.bin")
+            private_vals = self.private_key.private_numbers().private_value
+            print(private_vals)
+            save_key_pair.pickle_encrypt_save_a_class(private_vals, "private_key.bin", key)
+            print("Generated a key and saved it to the file.")
+
+        save_key(self.private_key, "test3.bin")
+        private_vals = self.private_key.private_numbers()
+        no_bits = private_vals.private_value.bit_length()
+        print (f"Private key value: {private_vals.private_value}. Number of bits {no_bits}")
+
+
+
 
         #private_vals = private_key.private_numbers()
         #no_bits=private_vals.private_value.bit_length()
@@ -37,30 +103,47 @@ class Signing:
         self.public_key = self.private_key.public_key()
         #pub=public_key.public_numbers()
     
+
+    def verify_signature(self, signature, data_that_was_signed):
+        try:
+            self.public_key.verify(signature, data_that_was_signed, elliptic_curve.ECDSA(hashes.SHA3_512()))
+        except cryptography.exceptions.InvalidSignature:
+            return False
+        else:
+            return True
     
-    
-    def sign(self):
-        data = b'abc'
+    def sign(self, data):
+        signature = None
         try:
             signature = self.private_key.sign(data, elliptic_curve.ECDSA(hashes.SHA3_512()))
-            print(len(signature), signature)
-            a = asymmetric.utils.decode_dss_signature(signature)
-            print(a)
+            #print(len(signature), signature)
+            #a = asymmetric.utils.decode_dss_signature(signature)
+            #print(a)
             
             #print("Good Signature: ",binascii.b2a_hex(signature).decode())
             self.public_key.verify(signature, data, elliptic_curve.ECDSA(hashes.SHA3_512()))
+
         except cryptography.exceptions.InvalidSignature:
             print("A bad signature failed")
         else:
             print("Good signature verified")
+
+        return signature
     
     
 
 class TestSigning(unittest.TestCase):
     def test_abc(self):
+        data = b'abc'
+
         a = Signing()
-        a.sign()
-        print(repr(a.private_key))
+        new_signature = a.sign(data)
+        print("new_signature", new_signature)
+
+        prev_sig = b'0E\x02 vPb\x84\xb9\xd1.\xe2]7\xd9>\x9a\xa0Qp\x1fl_&\x8d\xc3<\r\xb2\x89\xa0\x1cT\xf5\x83\xd4\x02!\x00\xe8d\xa1\x0f\x1eL\x08\x1e|\xf3\x94\xe4\xe0BN\\l\x84\x08F\x0b\xe1\xa3\x06\x0f\xb6\xff\xafTv\x8e\x01'
+
+        print(a.verify_signature(prev_sig, data))
+
         
         
     
