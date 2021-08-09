@@ -19,15 +19,10 @@ import unittest
 import public_private_key_lib
 
 
+# https://www.freecodecamp.org/news/create-cryptocurrency-using-python/
 
-"""
- 8 bytes: UTC time to nearest second
-64 bytes: SHA3-512 hash of previous block
-list of 
-"""
-
-
-
+# https://medium.com/@kiknaio/what-is-proof-of-existence-and-how-will-it-help-to-protect-intellectual-or-private-property-77aa97a3fbb1
+# https://poex.io/
 
 
 
@@ -88,10 +83,7 @@ class Hash:
     def __init__(self, data):
         """
         Parameters:
-                data (bytes): the data to perform a sha3-512 hash on
-
-        Returns:
-                (str): the hash as a string
+            data (bytes): the data to perform a sha3-512 hash on
         """
         assert( isinstance(data, bytes))
         self.data = data
@@ -100,20 +92,6 @@ class Hash:
         self.as_bytes = self.__hash_handle.digest()
 
 
-        
-        
-#def get_hash(data):
-#    """
-#    Parameters:
-#            data (bytes): the data to perform a sha3-512 hash on
-#
-#    Returns:
-#            (str): the hash as a string
-#    """
-#    assert( isinstance(data, bytes))
-#    
-#    hash = hashlib.sha3_512(data).hexdigest()
-#    return hash
 
 
 class Testget_hash(unittest.TestCase):
@@ -135,45 +113,19 @@ class Testget_hash(unittest.TestCase):
         str_hash = hash_binary_to_str(bin_hash)
         self.assertEqual(str_hash, h2.as_str)
         
-        
-        
-
-def pack_block(time, prev_block_hash, hash_set):
-    assert(isinstance(time, int))
-    assert(time > 1626590550)
-    assert(time < 1626590550 + 3600*24*365*50)
-    assert(isinstance(prev_block_hash, bytes))
-    assert(len(prev_block_hash) == 64)
-    
-    assert(isinstance(hash_set, list))
-    assert(len(hash_set) == 29)
-    for hash in hash_set:
-        assert(isinstance(hash, bytes))
-        assert(len(hash) == 64)
-    
-    
-    time_bytes = struct.pack("<Q", time)
-    print(time_bytes)
-    
-class Testpack_block(unittest.TestCase):
-    def test_1(self):
-        time = get_seconds_from_unix_epoch()
-        prev_block_hash = Hash(b"abc").as_bytes
-        
-        
-        #pack_block(time, prev_block_hash, [])
-    
-        
 
 
 
 
 class Block:
+    BLOCK_SIZE = 1024*2
+    HASHES_PER_BLOCK = 29
+
     def __init__(self):
         self.time = None
         self.pad = None
         self.prev_block_hash = None
-        self.hash_set = [None]*29
+        self.hash_set = [None]*Block.HASHES_PER_BLOCK
         self.signature = None
 
     def __eq__(self, other):
@@ -280,7 +232,7 @@ class Block:
             assert (len(self.prev_block_hash) == 64)
 
             assert (isinstance(self.hash_set, list))
-            assert (len(self.hash_set) == 29)
+            assert (len(self.hash_set) == Block.HASHES_PER_BLOCK)
             for x in self.hash_set:
                 assert (isinstance(x, bytes))
                 assert (len(x) == 64)
@@ -293,6 +245,7 @@ class Block:
 
     def sign_block(self, private_key):
         byte_stream = self.write_to_bytes()
+        # Don't include the signature bytes at the end.
         byte_stream = byte_stream[:-(79+1)]
         assert(len(byte_stream) == 2048-(79+1))
 
@@ -300,11 +253,16 @@ class Block:
         self.signature = signature
 
 
-    def verify_signature(self, public_key):
+    def verify_signature(self, public_or_private_key):
         byte_stream = self.write_to_bytes()
+        # Don't include the signature bytes at the end.
         byte_stream = byte_stream[:-(79 + 1)]
         assert (len(byte_stream) == 2048 - (79 + 1))
-        return public_key.is_signature_valid(self.signature, byte_stream)
+
+        return public_or_private_key.is_signature_valid(self.signature, byte_stream)
+
+    def get_block_hash(self):
+        return Hash(self.write_to_bytes()).as_bytes
 
 
 
@@ -320,11 +278,6 @@ class TestRandomUnpackPack(unittest.TestCase):
         #sig[0] = 0xFF
         #a.signature = bytes(sig)
         self.assertEqual(a, c)
-
-
-        #prev_block_hash = Hash(b"abc").as_bytes
-
-
 
 
 
@@ -344,14 +297,120 @@ class TestRandomUnpackPack(unittest.TestCase):
 
         a.sign_block(private_key)
         self.assertTrue(a.verify_signature(public_key))
+        self.assertTrue(a.verify_signature(private_key))
 
         print(a)
 
-        # pack_block(time, prev_block_hash, [])
 
 
 class BlockChain:
-    def __init__(self):
+    def __init__(self, saved_blockchain_path, private_key=None, public_key=None):
+        self.saved_blockchain_path = saved_blockchain_path
+        self.private_key = private_key
+        self.public_key = public_key
+
+        # Open and read the newest block, or else create the first block
+        if os.path.exists(self.saved_blockchain_path):
+            file_size = os.path.getsize(self.saved_blockchain_path)
+            with open(self.saved_blockchain_path, "rb") as file_handle:
+                file_handle.seek(file_size - Block.BLOCK_SIZE)
+                self.binary_block_data = file_handle.read()
+        else:
+            self.binary_block_data = b""
+
+
+        # get or build the first block
+        self.newest_block = Block()
+        if len(self.binary_block_data):
+            assert(len(self.binary_block_data) == Block.BLOCK_SIZE)
+            print("Loading newest block from file")
+            self.newest_block.read_from_bytes(self.binary_block_data[-Block.BLOCK_SIZE:])
+        else:
+            print("Generating first block")
+            self.newest_block.fill_with_valid_random()
+            self.newest_block.time = get_seconds_from_unix_epoch()
+            self.newest_block.prev_block_hash = bytes([0]*64)
+            self.newest_block.sign_block(self.private_key)
+            self.__write_block_to_file(self.newest_block)
+
+
+        if self.private_key is not None:
+            self.newest_block.verify_signature(self.private_key)
+        else:
+            self.newest_block.verify_signature(self.public_key)
+
+
+    def __write_block_to_file(self, block):
+        with open(self.saved_blockchain_path, "ab") as file_handle:
+            file_handle.write(block.write_to_bytes())
+
+    def add_block_to_blockchain(self, new_block):
+        assert(isinstance(new_block, Block))
+        assert(new_block.verify_block())
+
+        new_block.prev_block_hash = self.newest_block.get_block_hash()
+        new_block.sign_block(self.private_key)
+        assert(new_block.verify_signature(self.private_key))
+
+        self.__write_block_to_file(new_block)
+        self.newest_block = new_block
+
+
+class TestBlockchain(unittest.TestCase):
+    def test_1(self):
+        password = "abc_123_password_bacon"
+        private_file = "private_key_test.bin"
+        public_file = "public_key_test.txt"
+
+        if os.path.exists(private_file):
+            os.remove(private_file)
+        if os.path.exists(public_file):
+            os.remove(public_file)
+
+        private_key = public_private_key_lib.PrivateKey(password=password, private_key_file_path=private_file,
+                                 public_key_file_path=public_file)
+        self.assertFalse(private_key.was_key_loaded_from_file())
+        public_key = public_private_key_lib.PublicKey(public_key_file_path=public_file)
+
+        saved_blockchain_path = "test_blockchain1.bin"
+        if os.path.exists(saved_blockchain_path):
+            os.remove(saved_blockchain_path)
+
+        bc = BlockChain(saved_blockchain_path=saved_blockchain_path, private_key=private_key)
+        bc2 = BlockChain(saved_blockchain_path="test_blockchain1.bin", public_key=public_key)
+        self.assertEqual(bc.newest_block, bc2.newest_block)
+        #print(bc2.newest_block)
+
+        new_block = Block()
+        new_block.fill_with_valid_random()
+        bc.add_block_to_blockchain(new_block)
+        bc3 = BlockChain(saved_blockchain_path="test_blockchain1.bin", public_key=public_key)
+        self.assertEqual(bc.newest_block, bc3.newest_block)
+        #print(bc3.newest_block)
+    
+
+
+
+
+class ManyToOneAggregator:
+    def __init__(self, max_number_of_files_per_commit, private_key):
+        self.max_number_of_files_per_commit = max_number_of_files_per_commit
+        self.private_key = private_key
+
+        number_of_bottom_row_chains = (self.max_number_of_files_per_commit // Block.HASHES_PER_BLOCK) + 1
+
+        self.levels = []
+        n = number_of_bottom_row_chains
+        while True:
+            x = []
+            for m in range(n):
+                path = F"AggregatorBlockchain{}{}.bin"
+                x.append(BlockChain)
+            self.levels.append()
+
+
+
+
         pass
 
 
@@ -362,31 +421,14 @@ class BlockChain:
 
 
 
-    
-
-
-class Anchor:
-    def __init__(self):
-    
-    
-    
-    
-    
-        pass
-        
-    
-    
 
 
 
 
 
-def main():
-    pass
-    
-    
-    
-    
+
+
+
 
 if __name__ == '__main__':
     unittest.main()

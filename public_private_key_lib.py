@@ -15,7 +15,7 @@ import save_key_pair
 
 
 
-# https://www.freecodecamp.org/news/create-cryptocurrency-using-python/
+
 # https://stackoverflow.com/questions/45146504/python-cryptography-module-save-load-rsa-keys-to-from-file
 
 
