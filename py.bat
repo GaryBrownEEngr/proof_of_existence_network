@@ -1,0 +1,1 @@
+C:\PortablePrograms\WPy64-3950\python-3.9.5.amd64\python.exe %1 %2 %3 %4 %5 %6 %7 %8 %9
